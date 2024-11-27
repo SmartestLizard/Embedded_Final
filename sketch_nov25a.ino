@@ -13,6 +13,17 @@ volatile unsigned char *myUCSR0C = (unsigned char *)0x00C2;
 volatile unsigned int  *myUBRR0  = (unsigned int *) 0x00C4;
 volatile unsigned char *myUDR0   = (unsigned char *)0x00C6;
 
+// Registers for LEDs
+// Define Port J Register Pointers
+volatile unsigned char* port_j = (unsigned char*) 0x105; 
+volatile unsigned char* ddr_j  = (unsigned char*) 0x104; 
+volatile unsigned char* pin_j  = (unsigned char*) 0x103; 
+
+// Define Port H Register Pointers
+volatile unsigned char* port_h = (unsigned char*) 0x102; 
+volatile unsigned char* ddr_h  = (unsigned char*) 0x101; 
+volatile unsigned char* pin_h  = (unsigned char*) 0x100; 
+
 //real time clock
 #include <RTClib.h>
 RTC_DS3231 rtc;
@@ -42,6 +53,17 @@ void setup() {
   temp = dht.readTemperature(true);
   humi  = dht.readHumidity();
   Serial.begin(9600);//////////////////////////////////////////remove////////////////////////////
+
+  // for LEDs
+  //set PJ1 to OUTPUT (red LED)
+  *ddr_j |= 0x02;
+  //set PJ0 to OUTPUT (yellow LED)
+  *ddr_j |= 0x01;
+  //set PH1 to OUTPUT (green LED)
+  *ddr_h |= 0x02;
+  //set PH0 to OUTPUT (blue LED)
+  *ddr_h |= 0x01;
+
 }
 
 void loop() {
@@ -73,20 +95,37 @@ void loop() {
     on = false;
     error = false;
     idle = false;
+
     //turn Yellow LED on
+    *port_j &= ~(0x02);  // red off
+    *port_j |= 0x01;     // yellow ON
+    *port_h &= ~(0x02);  // green off
+    *port_h &= ~(0x01);  // blue off
   }
   if(on && input == 'r'){
-    //reset and red LED off, green LED on
     if(error){
       U0putchar("\nswitch to idle at ");
       U0putchar(timeReport());
     }
     error = false;
     idle = true;
+
+    //reset and red LED off, green LED on
+    *port_j &= ~(0x02);  // red off
+    *port_j &= ~(0x01);  // yellow off
+    *port_h |= 0x02;     // green ON
+    *port_h &= ~(0x01);  // blue off
   }
   if(on && error){
     //display error
+
     //red LED on
+    *port_j |= 0x02;     // red ON
+    *port_j &= ~(0x01);  // yellow off
+    *port_h &= ~(0x02);  // green off
+    *port_h &= ~(0x01);  // blue off
+
+
   }
   if(on && !error){
     if(water < waterthreshold){
@@ -104,9 +143,20 @@ void loop() {
         U0putchar(timeReport());
       }
       idle = false;
+
+      // blue LED on
+      *port_j &= ~(0x02);  // red off
+      *port_j &= ~(0x01);  // yellow off
+      *port_h &= ~(0x02);  // green off
+      *port_h |= 0x01;     // blue ON
     }
     else{
       //fan off and green LED on
+      *port_j &= ~(0x02);  // red off
+      *port_j &= ~(0x01);  // yellow off
+      *port_h |= 0x02;     // green ON
+      *port_h &= ~(0x01);  // blue off
+
       //display temp and humidity
       idle = true;
     }
