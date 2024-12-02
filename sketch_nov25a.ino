@@ -2,6 +2,7 @@
 bool on = false;
 bool error = false;
 bool idle = false;
+bool interruptTime = false;
 
 //USART/Serial Monitor registers
 #define RDA 0x80
@@ -12,7 +13,7 @@ volatile unsigned char *myUCSR0C = (unsigned char *)0x00C2;
 volatile unsigned int  *myUBRR0  = (unsigned int *) 0x00C4;
 volatile unsigned char *myUDR0   = (unsigned char *)0x00C6;
 
-// Registers for LEDs and vent left/right button
+// Registers for LEDs and vent left/right button and start, reset, and stop buttons
 // Define Port J Register Pointers
 volatile unsigned char* port_j = (unsigned char*) 0x105; 
 volatile unsigned char* ddr_j  = (unsigned char*) 0x104; 
@@ -22,6 +23,11 @@ volatile unsigned char* pin_j  = (unsigned char*) 0x103;
 volatile unsigned char* port_h = (unsigned char*) 0x102; 
 volatile unsigned char* ddr_h  = (unsigned char*) 0x101; 
 volatile unsigned char* pin_h  = (unsigned char*) 0x100; 
+
+// Define Port E Register Pointers
+volatile unsigned char* port_e = (unsigned char*) 0x2E; 
+volatile unsigned char* ddr_e  = (unsigned char*) 0x2D; 
+volatile unsigned char* pin_e  = (unsigned char*) 0x2C;
 
 // For output vent: stepper library
 #include <Stepper.h>
@@ -48,7 +54,7 @@ const int tempthreshold = 75; //adjust
 const int waterthreshold = 12; //adjust
 
 
-//remove
+//remove//////////////////////////////////////////////////////////////////////////////////////////////////////
 int water = 11;
 
 
@@ -58,8 +64,14 @@ void setup() {
   dht.begin(); // initialize the temp and humidity sensor
   temp = dht.readTemperature(true);
   humi  = dht.readHumidity();
-  Serial.begin(9600);//////////////////////////////////////////remove////////////////////////////
-
+  //interrupts
+  *ddr_e &= 0x01;//PE0
+  *ddr_e &= 0x02;//PE1
+  *ddr_h &= 0x40;//PH6
+  attachInterrupt(digitalPinToInterrupt(2), startPressed, FALLING);//start
+  attachInterrupt(digitalPinToInterrupt(3), stopPressed, FALLING);//stop
+  attachInterrupt(digitalPinToInterrupt(18), resetPressed, FALLING);//reset
+  
   // ************ for LEDs *************
   //set PJ1 to OUTPUT (red LED)
   *ddr_j |= 0x02;
@@ -83,7 +95,10 @@ void setup() {
 }
 
 void loop() {
-  char input = Serial.read();///////////////////////////////remove////////////////////////////////
+  if(interruptTime == true){
+    interruptTime = false;
+    U0putchar(timeReport());
+  }
   DateTime now = rtc.now();
   if(now.day() == 0){
     humi  = dht.readHumidity();
@@ -91,48 +106,7 @@ void loop() {
     temp = dht.readTemperature(true);
     //Send to LCD display
   }
-
-  ////////////////////////create an interupt//////////////
-  if(input == 's'){//change to when start button pressed
-    //start
-    if(!on){
-      U0putchar("\nswitch to idle at ");
-      U0putchar(timeReport());
-      idle = true;
-    }
-    on = true;
-  }
-  /////////////////////////////////////////////////////
-  if(input == 'f'){//change to when stop button pressed
-    //stop
-    if(on){
-      U0putchar("\nswitch to disabled at ");
-      U0putchar(timeReport());
-    }
-    on = false;
-    error = false;
-    idle = false;
-
-    //turn Yellow LED on
-    *port_j &= ~(0x02);  // red off
-    *port_j |= 0x01;     // yellow ON
-    *port_h &= ~(0x02);  // green off
-    *port_h &= ~(0x01);  // blue off
-  }
-  if(on && input == 'r'){
-    if(error){
-      U0putchar("\nswitch to idle at ");
-      U0putchar(timeReport());
-    }
-    error = false;
-    idle = true;
-
-    //reset and red LED off, green LED on
-    *port_j &= ~(0x02);  // red off
-    *port_j &= ~(0x01);  // yellow off
-    *port_h |= 0x02;     // green ON
-    *port_h &= ~(0x01);  // blue off
-  }
+  
   if(on && error){
     //display error
 
@@ -215,7 +189,7 @@ void U0init(unsigned long U0baud)
  *myUCSR0C = 0x06;
  *myUBRR0  = tbaud;
 }
-String timeReport()//////////////////////////Gives the wrong info. Debug with teacher/////////////////////////
+String timeReport()
 {
   DateTime now = rtc.now();
   String report = (String)now.year();
@@ -233,4 +207,53 @@ String timeReport()//////////////////////////Gives the wrong info. Debug with te
   report += (String)now.second();
   report += '\n';
   return report;
+}
+
+//Interrupt Functions
+void startPressed(){
+  if(!on){
+      U0putchar("\nswitch to idle at ");
+      interruptTime = true;
+      idle = true;
+    }
+    on = true;
+  //turn green LED on
+    *port_j &= ~(0x02);  // red off
+    *port_j &= ~(0x01);  // yellow off
+    *port_h |= 0x02;     // green ON
+    *port_h &= ~(0x01);  // blue off
+}
+
+void stopPressed(){
+  //stop
+    if(on){
+      U0putchar("\nswitch to disabled at ");
+      interruptTime = true;
+    }
+    on = false;
+    error = false;
+    idle = false;
+
+    //turn Yellow LED on
+    *port_j &= ~(0x02);  // red off
+    *port_j |= 0x01;     // yellow ON
+    *port_h &= ~(0x02);  // green off
+    *port_h &= ~(0x01);  // blue off
+}
+
+void resetPressed(){
+  if(on){
+    if(error){
+      U0putchar("\nswitch to idle at ");
+      interruptTime = true;
+    }
+    error = false;
+    idle = true;
+
+    //reset and red LED off, green LED on
+    *port_j &= ~(0x02);  // red off
+    *port_j &= ~(0x01);  // yellow off
+    *port_h |= 0x02;     // green ON
+    *port_h &= ~(0x01);  // blue off
+  }
 }
