@@ -31,17 +31,20 @@ volatile unsigned char* pin_e  = (unsigned char*) 0x2C;
 
 // For output vent: stepper library
 #include <Stepper.h>
-
-// create instance of stepper class
 const int stepsPerRevolution = 2038;
 Stepper output_vent = Stepper(stepsPerRevolution, 8, 10, 9, 11);
 
-//real time clock
+// LCD  
+#include <LiquidCrystal.h>
+const int RS = 12, EN = 13, D4 = 0, D5 = 1, D6 = 4, D7 = 5;
+LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
+
+// real time clock
 #include <RTClib.h>
 RTC_DS3231 rtc;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
-//humidity and temp library
+// humidity and temp library
 #include "DHT.h"
 #define DHTPIN 2
 #define DHTTYPE DHT11
@@ -71,6 +74,9 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(2), startPressed, FALLING);//start
   attachInterrupt(digitalPinToInterrupt(3), stopPressed, FALLING);//stop
   attachInterrupt(digitalPinToInterrupt(18), resetPressed, FALLING);//reset
+
+  // LCD
+  lcd.begin(16, 2); // set up number of columns and rows
   
   // ************ for LEDs *************
   //set PJ1 to OUTPUT (red LED)
@@ -105,6 +111,12 @@ void loop() {
     // read temperature as Fahrenheit
     temp = dht.readTemperature(true);
     //Send to LCD display
+    lcd.setCursor(0, 0);  // print humidity in first row
+    lcd.print("Humidity: ");
+    lcd.print(humi);
+    lcd.setCursor(1, 0);  // print temp in second row
+    lcd.print("Temp: ");
+    lcd.print(temp);
   }
   
   if(on && error){
