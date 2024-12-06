@@ -120,12 +120,14 @@ void setup() {
   // enable pullup resistor on PH4
   *port_h |= 0x10;
 
-    //turn Yellow LED on
-    *port_j &= ~(0x02);  // red off
-    *port_j |= 0x01;     // yellow ON
-    *port_h &= ~(0x02);  // green off
-    *port_h &= ~(0x01);  // blue off
+  // turn Yellow LED on
+  *port_j &= ~(0x02);  // red off
+  *port_j |= 0x01;     // yellow ON
+  *port_h &= ~(0x02);  // green off
+  *port_h &= ~(0x01);  // blue off
 
+  // fan motor off
+  *port_a &= ~(0x02);
 }
 
 void loop() {
