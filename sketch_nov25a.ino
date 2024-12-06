@@ -163,8 +163,6 @@ void loop() {
 
   }
   if(on && !error){
-    // fan motor on
-    *port_a |= 0x02;
 
     if(water < waterthreshold){
       //display error message and red LED on
@@ -187,6 +185,9 @@ void loop() {
       *port_j &= ~(0x01);  // yellow off
       *port_h &= ~(0x02);  // green off
       *port_h |= 0x01;     // blue ON
+
+      // fan motor on
+      *port_a |= 0x02;
     }
     else{
       //fan off and green LED on
