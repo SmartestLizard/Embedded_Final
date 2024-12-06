@@ -61,7 +61,7 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 
 // humidity and temp library
 #include "DHT.h"
-#define DHTPIN 2
+#define DHTPIN 38
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 float temp;
