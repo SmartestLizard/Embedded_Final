@@ -1,3 +1,7 @@
+// Names: Alyssa Workman, Chanel Koh, Cole Kauffman, Jaydon McElvain
+// Assignment: CPE 301 Final Project
+// Date: Dec 14 2024
+
 //state values
 bool on = false;
 bool error = false;
@@ -34,6 +38,11 @@ volatile unsigned char* pin_h  = (unsigned char*) 0x100;
 volatile unsigned char* port_e = (unsigned char*) 0x2E; 
 volatile unsigned char* ddr_e  = (unsigned char*) 0x2D; 
 volatile unsigned char* pin_e  = (unsigned char*) 0x2C;
+
+// Define Port A Register Pointers
+volatile unsigned char* port_a = (unsigned char*) 0x22; 
+volatile unsigned char* ddr_a  = (unsigned char*) 0x21; 
+volatile unsigned char* pin_a  = (unsigned char*) 0x20;
 
 // For output vent: stepper library
 #include <Stepper.h>
@@ -87,14 +96,18 @@ void setup() {
   lcd.begin(16, 2); // set up number of columns and rows
   
   // ************ for LEDs *************
-  //set PJ1 to OUTPUT (red LED)
+  //set PJ1 (pin 14) to OUTPUT (red LED)
   *ddr_j |= 0x02;
-  //set PJ0 to OUTPUT (yellow LED)
+  //set PJ0 (pin 15) to OUTPUT (yellow LED)
   *ddr_j |= 0x01;
-  //set PH1 to OUTPUT (green LED)
+  //set PH1 (pin 16) to OUTPUT (green LED)
   *ddr_h |= 0x02;
-  //set PH0 to OUTPUT (blue LED)
+  //set PH0 (pin 17) to OUTPUT (blue LED)
   *ddr_h |= 0x01;
+
+  // ********** for fan motor ***************
+  // set PA1 (pin 23) to OUTPUT 
+  *ddr_a |= 0x02;
 
   // ********** for output vent *************
   // right button: set PH3 to INPUT
@@ -106,6 +119,7 @@ void setup() {
   *ddr_h &= 0xEF;
   // enable pullup resistor on PH4
   *port_h |= 0x10;
+
 }
 
 void loop() {
@@ -137,9 +151,15 @@ void loop() {
     *port_h &= ~(0x02);  // green off
     *port_h &= ~(0x01);  // blue off
 
+    // fan motor off
+    *port_a &= ~(0x02);
+
 
   }
   if(on && !error){
+    // fan motor on
+    *port_a |= 0x02;
+
     if(water < waterthreshold){
       //display error message and red LED on
       U0putchar("\nswitch to error at ");
