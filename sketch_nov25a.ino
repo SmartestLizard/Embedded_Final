@@ -1,3 +1,4 @@
+
 // Names: Alyssa Workman, Chanel Koh, Cole Kauffman, Jaydon McElvain
 // Assignment: CPE 301 Final Project
 // Date: Dec 14 2024
@@ -46,12 +47,12 @@ volatile unsigned char* pin_a  = (unsigned char*) 0x20;
 
 // For output vent: stepper library
 #include <Stepper.h>
-const int stepsPerRevolution = 2038;
-Stepper output_vent = Stepper(stepsPerRevolution, 8, 10, 9, 11);
+const int stepsPerRevolution = 100;
+Stepper output_vent(stepsPerRevolution, 8, 10, 9, 11);
 
 // LCD  
 #include <LiquidCrystal.h>
-const int RS = 12, EN = 13, D4 = 0, D5 = 1, D6 = 4, D7 = 5;
+const int RS = 12, EN = 13, D4 = 31, D5 = 30, D6 = 4, D7 = 5;
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 
 // real time clock
@@ -61,7 +62,7 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 
 // humidity and temp library
 #include "DHT.h"
-#define DHTPIN 38
+#define DHTPIN A1
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 float temp;
@@ -94,6 +95,8 @@ void setup() {
 
   // LCD
   lcd.begin(16, 2); // set up number of columns and rows
+  lcd.print("Humidity: ");
+  // initial print
   
   // ************ for LEDs *************
   //set PJ1 (pin 14) to OUTPUT (red LED)
@@ -128,6 +131,7 @@ void setup() {
 
   // fan motor off
   *port_a &= ~(0x02);
+
 }
 
 void loop() {
@@ -137,18 +141,19 @@ void loop() {
   }
   water = adc_read(0);
   DateTime now = rtc.now();
-  if(now.day() == 0){
+  //if(now.day() == 0){
     humi  = dht.readHumidity();
+    Serial.print(humi);
     // read temperature as Fahrenheit
     temp = dht.readTemperature(true);
     //Send to LCD display
     lcd.setCursor(0, 0);  // print humidity in first row
     lcd.print("Humidity: ");
     lcd.print(humi);
-    lcd.setCursor(1, 0);  // print temp in second row
+    lcd.setCursor(0, 1);  // print temp in second row
     lcd.print("Temp: ");
     lcd.print(temp);
-  }
+  //}
   
   if(on && error){
     //display error
@@ -207,14 +212,14 @@ void loop() {
   // if right rotate button (PH3) pressed: rotate CW 50 steps at 5 RPM
   if(*pin_h & 0x08){
     U0putchar("Right rotate button pressed\n");
-    output_vent.setSpeed(5);
-    output_vent.step(50);
+    output_vent.setSpeed(50);
+    output_vent.step(stepsPerRevolution);
   }
   // if left rotate button (PH4) pressed: rotate CCW 50 steps at 5 RPM
   if(*pin_h & 0x10){
     U0putchar("Left rotate button pressed\n");
-    output_vent.setSpeed(5);
-    output_vent.step(-50);
+    output_vent.setSpeed(50);
+    output_vent.step(-stepsPerRevolution);
   }
   
 }
