@@ -1,5 +1,5 @@
-
 // Names: Alyssa Workman, Chanel Koh, Cole Kauffman, Jaydon McElvain
+// Group 12
 // Assignment: CPE 301 Final Project
 // Date: Dec 14 2024
 
@@ -47,8 +47,8 @@ volatile unsigned char* pin_a  = (unsigned char*) 0x20;
 
 // For output vent: stepper library
 #include <Stepper.h>
-const int stepsPerRevolution = 100;
-Stepper output_vent(stepsPerRevolution, 8, 10, 9, 11);
+const int stepsPerRevolution = 2038;
+Stepper output_vent = Stepper(stepsPerRevolution, 8, 10, 9, 11);
 
 // LCD  
 #include <LiquidCrystal.h>
@@ -62,7 +62,7 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 
 // humidity and temp library
 #include "DHT.h"
-#define DHTPIN A1
+#define DHTPIN 22
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 float temp;
@@ -79,6 +79,7 @@ unsigned int water = 0;
 void setup() {
   U0init(9600); //Serial initialization
   rtc.begin(); //real-time clock initialization
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   dht.begin(); // initialize the temp and humidity sensor
   temp = dht.readTemperature(true);
   humi  = dht.readHumidity();
@@ -90,13 +91,21 @@ void setup() {
   *ddr_e &= 0x02;//PE1
   *ddr_h &= 0x40;//PH6
   attachInterrupt(digitalPinToInterrupt(2), startPressed, FALLING);//start
-  attachInterrupt(digitalPinToInterrupt(3), stopPressed, FALLING);//stop
+  //attachInterrupt(digitalPinToInterrupt(3), stopPressed, FALLING);//stop
   attachInterrupt(digitalPinToInterrupt(18), resetPressed, FALLING);//reset
+
+  // ********** for stop button ***************
+  // set PA2 (pin 24) to OUTPUT 
+  *ddr_a |= 0x04;
 
   // LCD
   lcd.begin(16, 2); // set up number of columns and rows
+  lcd.setCursor(0, 0);  // print humidity in first row
   lcd.print("Humidity: ");
-  // initial print
+  lcd.print(humi);
+  lcd.setCursor(0, 1);  // print temp in second row
+  lcd.print("Temp: ");
+  lcd.print(temp);
   
   // ************ for LEDs *************
   //set PJ1 (pin 14) to OUTPUT (red LED)
@@ -109,8 +118,9 @@ void setup() {
   *ddr_h |= 0x01;
 
   // ********** for fan motor ***************
-  // set PA1 (pin 23) to OUTPUT 
+  // set PA1 and PA3 (pin 23 and 25) to OUTPUT 
   *ddr_a |= 0x02;
+  *ddr_a |= 0x08;
 
   // ********** for output vent *************
   // right button: set PH3 to INPUT
@@ -131,19 +141,20 @@ void setup() {
 
   // fan motor off
   *port_a &= ~(0x02);
-
+  *port_a &= ~(0x08);
 }
 
 void loop() {
+  
+  DateTime now = rtc.now();
   if(interruptTime == true){
     interruptTime = false;
-    U0putchar(timeReport());
+    U0putchar(timeReport(now));
   }
   water = adc_read(0);
-  DateTime now = rtc.now();
-  //if(now.day() == 0){
+
+  if(now.second() == 0){
     humi  = dht.readHumidity();
-    Serial.print(humi);
     // read temperature as Fahrenheit
     temp = dht.readTemperature(true);
     //Send to LCD display
@@ -153,11 +164,15 @@ void loop() {
     lcd.setCursor(0, 1);  // print temp in second row
     lcd.print("Temp: ");
     lcd.print(temp);
-  //}
-  
+  }
+  if(*pin_a & 0x04){
+    stopPressed();
+  }
   if(on && error){
     //display error
-
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("ERROR");
     //red LED on
     *port_j |= 0x02;     // red ON
     *port_j &= ~(0x01);  // yellow off
@@ -166,6 +181,7 @@ void loop() {
 
     // fan motor off
     *port_a &= ~(0x02);
+    *port_a &= ~(0x08);
 
 
   }
@@ -174,7 +190,7 @@ void loop() {
     if(water < waterthreshold){
       //display error message and red LED on
       U0putchar("\nswitch to error at ");
-      U0putchar(timeReport());
+      U0putchar(timeReport(now));
       error = true;
       idle = false;
     }
@@ -183,7 +199,7 @@ void loop() {
       //display temp and humidity if seconds = 0
       if(idle){
         U0putchar("\nswitch to running at ");
-        U0putchar(timeReport());
+        U0putchar(timeReport(now));
       }
       idle = false;
 
@@ -195,6 +211,7 @@ void loop() {
 
       // fan motor on
       *port_a |= 0x02;
+      *port_a |= 0x08;
     }
     else{
       //fan off and green LED on
@@ -203,6 +220,8 @@ void loop() {
       *port_h |= 0x02;     // green ON
       *port_h &= ~(0x01);  // blue off
 
+      *port_a &= ~(0x02);
+      *port_a &= ~(0x08);
       //display temp and humidity
       idle = true;
     }
@@ -211,15 +230,15 @@ void loop() {
   // ********** output vent **********
   // if right rotate button (PH3) pressed: rotate CW 50 steps at 5 RPM
   if(*pin_h & 0x08){
-    U0putchar("Right rotate button pressed\n");
-    output_vent.setSpeed(50);
-    output_vent.step(stepsPerRevolution);
+    //U0putchar("Right rotate button pressed\n");
+    output_vent.setSpeed(5);
+    output_vent.step(50);
   }
   // if left rotate button (PH4) pressed: rotate CCW 50 steps at 5 RPM
   if(*pin_h & 0x10){
-    U0putchar("Left rotate button pressed\n");
-    output_vent.setSpeed(50);
-    output_vent.step(-stepsPerRevolution);
+    //U0putchar("Left rotate button pressed\n");
+    output_vent.setSpeed(5);
+    output_vent.step(-50);
   }
   
 }
@@ -285,9 +304,8 @@ unsigned int adc_read(unsigned char adc_channel_num)
   return *my_ADC_DATA;
 }
 
-String timeReport()
+String timeReport(DateTime now)
 {
-  DateTime now = rtc.now();
   String report = (String)now.year();
   report += '/';
   report += (String)now.month();
@@ -311,13 +329,15 @@ void startPressed(){
       U0putchar("\nswitch to idle at ");
       interruptTime = true;
       idle = true;
-    }
     on = true;
   //turn green LED on
+    *port_a &= ~(0x02);
+    *port_a &= ~(0x08);
     *port_j &= ~(0x02);  // red off
     *port_j &= ~(0x01);  // yellow off
     *port_h |= 0x02;     // green ON
     *port_h &= ~(0x01);  // blue off
+  }
 }
 
 void stopPressed(){
@@ -331,6 +351,8 @@ void stopPressed(){
     idle = false;
 
     //turn Yellow LED on
+    *port_a &= ~(0x02);
+    *port_a &= ~(0x08);
     *port_j &= ~(0x02);  // red off
     *port_j |= 0x01;     // yellow ON
     *port_h &= ~(0x02);  // green off
@@ -342,14 +364,17 @@ void resetPressed(){
     if(error){
       U0putchar("\nswitch to idle at ");
       interruptTime = true;
-    }
-    error = false;
-    idle = true;
+    
+      error = false;
+      idle = true;
 
     //reset and red LED off, green LED on
+    *port_a &= ~(0x02);
+    *port_a &= ~(0x08);
     *port_j &= ~(0x02);  // red off
     *port_j &= ~(0x01);  // yellow off
     *port_h |= 0x02;     // green ON
     *port_h &= ~(0x01);  // blue off
+    }
   }
 }
